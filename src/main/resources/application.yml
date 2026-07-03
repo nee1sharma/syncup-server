@@ -1,0 +1,65 @@
+server:
+  address: 0.0.0.0
+  port: 8500
+  shutdown: graceful
+  tomcat:
+    max-http-form-post-size: 4MB
+
+spring:
+  application:
+    name: syncup-server
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: jdbc:sqlite:${syncup.storage.root}/syncup.db
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 4
+      connection-timeout: 10000
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      enabled: false
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+
+syncup:
+  server:
+    name: My Laptop
+  discovery:
+    enabled: true
+    port: 9999
+    max-datagram-bytes: 2048
+  storage:
+    root: ./syncup-data
+    minimum-free-bytes: 5368709120
+    partial-retention: 7d
+  transfer:
+    segment-bytes: 8388608
+    max-segment-bytes: 16777216
+    max-file-bytes: 1099511627776
+    max-concurrent-per-device: 2
+    max-concurrent-total: 4
+    idle-timeout: 10m
+  manifest:
+    max-batch-files: 500
+    max-body-bytes: 4194304
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+  info:
+    env:
+      enabled: false
+
+info:
+  app:
+    name: SyncUp Server
+    api-version: v1
