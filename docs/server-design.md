@@ -286,11 +286,9 @@ Use a unique committed-file constraint on `(device_id, sha256, size_bytes)`. Ind
 ```text
 syncup-data/
 ├── data/
-│   └── <sanitized-device-name>/
-│       └── <year>/<month>/
-│           └── <file-id>_<sanitized-original-name>
+│   └── <file-id>
 ├── partial/
-│   └── <sanitized-device-name>/<run-id>/<transfer-id>.part
+│   └── <transfer-id>.part
 ├── quarantine/
 ├── syncup.db
 ├── server-id
@@ -336,7 +334,7 @@ The first server implementation has no application-level security:
 - No TLS/HTTPS
 
 The client includes its stable `deviceId` in backup requests. The server uses it only to organize metadata and ownership; it is not proof of identity.
-The client also sends `deviceName`. The server stores files beneath a sanitized `deviceName` folder and keeps the latest display name in the `devices` table.
+The client also sends `deviceName`. The server stores files under server-generated names in `data/` and keeps the latest display name in the `devices` table.
 
 All SyncUp API endpoints are reachable by devices that can access the server's LAN address. Any such device could inspect or restore any backup if it knows or discovers the API. Therefore:
 

@@ -37,9 +37,14 @@ public class StartupReporter {
 	@EventListener(ApplicationReadyEvent.class)
 	public void ready() {
 		var identity = identityService.identity();
-		log.info("event=server_ready serverId={} serverName=\"{}\" httpPort={} storageRoot=\"{}\" addresses={}",
-				identity.serverId(), identity.serverName(), port, storage.root(), addresses());
-		log.warn("event=trusted_lan_warning message=\"No authentication or TLS is enabled; do not expose this server outside a trusted private LAN\"");
+		log.info(LogJson.event("server_ready",
+				"serverId", identity.serverId(),
+				"serverName", identity.serverName(),
+				"httpPort", port,
+				"storageRoot", storage.root(),
+				"addresses", addresses()));
+		log.warn(LogJson.event("trusted_lan_warning",
+				"message", "No authentication or TLS is enabled; do not expose this server outside a trusted private LAN"));
 	}
 
 	private java.util.List<String> addresses() {

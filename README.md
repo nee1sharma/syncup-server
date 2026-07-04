@@ -86,7 +86,7 @@ It requires:
 - `X-SyncUp-Device-Name`
 - `X-SyncUp-Run-Id`
 
-Backed-up files are stored beneath a sanitized `deviceName` folder within
+Backed-up files are stored under server-generated names within
 `syncup-data/data/`, while `deviceId` remains the ownership key for metadata and
 authorization checks.
 

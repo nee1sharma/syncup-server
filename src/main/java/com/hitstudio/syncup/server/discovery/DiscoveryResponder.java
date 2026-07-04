@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import tools.jackson.databind.ObjectMapper;
+import com.hitstudio.syncup.server.support.LogJson;
 
 @Component
 public class DiscoveryResponder {
@@ -64,7 +65,8 @@ public class DiscoveryResponder {
 			executor = Executors.newSingleThreadExecutor(
 					Thread.ofPlatform().name("syncup-discovery-", 0).daemon(true).factory());
 			executor.execute(this::receiveLoop);
-			log.info("event=discovery_started udpPort={}", properties.discovery().port());
+			log.info(LogJson.event("discovery_started",
+					"udpPort", properties.discovery().port()));
 		} catch (IOException exception) {
 			running.set(false);
 			throw new IllegalStateException("Could not bind SyncUp discovery port", exception);
@@ -82,10 +84,12 @@ public class DiscoveryResponder {
 				// Allows prompt lifecycle checks.
 			} catch (SocketException exception) {
 				if (running.get()) {
-					log.warn("event=discovery_socket_error", exception);
+					log.warn(LogJson.event("discovery_socket_error",
+							"message", exception.getMessage()), exception);
 				}
 			} catch (Exception exception) {
-				log.debug("event=discovery_request_rejected reason=malformed");
+				log.debug(LogJson.event("discovery_request_rejected",
+						"reason", "malformed"));
 			}
 		}
 	}
@@ -153,7 +157,7 @@ public class DiscoveryResponder {
 		if (executor != null) {
 			executor.shutdownNow();
 		}
-		log.info("event=discovery_stopped");
+		log.info(LogJson.event("discovery_stopped"));
 	}
 
 	public record DiscoveryRequest(String type, String apiVersion, UUID requestId) {

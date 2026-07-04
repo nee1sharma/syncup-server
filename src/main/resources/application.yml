@@ -27,7 +27,7 @@ spring:
 
 syncup:
   server:
-    name: My Laptop
+    name: hitstudio
   discovery:
     enabled: true
     port: 9999
@@ -38,7 +38,7 @@ syncup:
     partial-retention: 7d
   transfer:
     segment-bytes: 8388608
-    max-segment-bytes: 16777216
+    max-segment-bytes: 4294967296 # 4 GiB
     max-file-bytes: 1099511627776
     max-concurrent-per-device: 2
     max-concurrent-total: 4

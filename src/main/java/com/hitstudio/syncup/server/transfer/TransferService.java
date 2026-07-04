@@ -7,9 +7,12 @@ import com.hitstudio.syncup.server.persistence.JdbcFileRepository;
 import com.hitstudio.syncup.server.persistence.JdbcTransferRepository;
 import com.hitstudio.syncup.server.persistence.Records;
 import com.hitstudio.syncup.server.support.DomainException;
+import com.hitstudio.syncup.server.support.LogJson;
 import com.hitstudio.syncup.server.support.StorageBootstrap;
 import com.hitstudio.syncup.server.support.SyncUpMetrics;
 import io.micrometer.core.instrument.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -29,7 +32,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +44,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class TransferService {
+	private static final Logger log = LoggerFactory.getLogger(TransferService.class);
 	private final JdbcTransferRepository transfers;
 	private final JdbcBackupRepository backups;
 	private final JdbcFileRepository files;
@@ -87,26 +90,29 @@ public class TransferService {
 			String deviceName,
 			UUID runId,
 			long uploadOffset,
-			long contentLength,
-			InputStream input
+		long contentLength,
+		InputStream input
 	) {
-		validateLength(contentLength);
-		if (uploadOffset < 0) {
-			throw new DomainException(HttpStatus.BAD_REQUEST, "INVALID_UPLOAD_OFFSET",
-					"Upload-Offset must be non-negative");
-		}
-
+		String trimmed = deviceName.trim();
 		ReentrantLock lock = transferLocks.computeIfAbsent(transferId, ignored -> new ReentrantLock());
-		if (!lock.tryLock()) {
-			throw capacity("This transfer already has an active writer");
-		}
-		backups.upsertDevice(deviceId, deviceName.trim(), clock.instant());
-		Semaphore perDevice = deviceCapacity.computeIfAbsent(deviceId,
-				ignored -> new Semaphore(properties.transfer().maxConcurrentPerDevice(), true));
+		Semaphore perDevice = null;
 		boolean global = false;
 		boolean device = false;
 		boolean counted = false;
+		boolean locked = false;
 		try {
+			validateLength(contentLength);
+			if (uploadOffset < 0) {
+				throw new DomainException(HttpStatus.BAD_REQUEST, "INVALID_UPLOAD_OFFSET",
+						"Upload-Offset must be non-negative");
+			}
+			if (!lock.tryLock()) {
+				throw capacity("This transfer already has an active writer");
+			}
+			locked = true;
+			backups.upsertDevice(deviceId, trimmed, clock.instant());
+			perDevice = deviceCapacity.computeIfAbsent(deviceId,
+					ignored -> new Semaphore(properties.transfer().maxConcurrentPerDevice(), true));
 			global = globalCapacity.tryAcquire();
 			device = perDevice.tryAcquire();
 			if (!global || !device) {
@@ -121,7 +127,18 @@ public class TransferService {
 						"The backup run no longer accepts upload content");
 			}
 			if ("COMMITTED".equals(transfer.state())) {
-				return new UploadResult(transfer.expectedSize(), true);
+				UploadResult result = new UploadResult(transfer.expectedSize(), true);
+				log.info(LogJson.event("transfer_upload_skipped",
+						"deviceId", deviceId,
+						"deviceName", trimmed,
+						"deviceStatus", "active",
+						"runId", runId,
+						"transferId", transferId,
+						"clientFileKey", transfer.clientFileKey(),
+						"state", transfer.state(),
+						"uploadedBytes", result.offset(),
+						"complete", true));
+				return result;
 			}
 			if ("REJECTED".equals(transfer.state()) || "EXPIRED".equals(transfer.state())) {
 				throw new DomainException(HttpStatus.CONFLICT, "TRANSFER_NOT_ACTIVE",
@@ -150,9 +167,34 @@ public class TransferService {
 
 			if (accepted == transfer.expectedSize()) {
 				verifyOnBoundedExecutor(transfer, partial);
-				return new UploadResult(accepted, true);
+				UploadResult result = new UploadResult(accepted, true);
+				log.info(LogJson.event("transfer_upload_completed",
+						"deviceId", deviceId,
+						"deviceName", trimmed,
+						"deviceStatus", "active",
+						"runId", runId,
+						"transferId", transferId,
+						"clientFileKey", transfer.clientFileKey(),
+						"uploadedBytes", accepted,
+						"expectedBytes", transfer.expectedSize(),
+						"complete", true));
+				return result;
 			}
-			return new UploadResult(accepted, false);
+			UploadResult result = new UploadResult(accepted, false);
+			log.info(LogJson.event("transfer_upload_partially_saved",
+					"deviceId", deviceId,
+					"deviceName", trimmed,
+					"deviceStatus", "active",
+					"runId", runId,
+					"transferId", transferId,
+					"clientFileKey", transfer.clientFileKey(),
+					"uploadedBytes", accepted,
+					"expectedBytes", transfer.expectedSize(),
+					"complete", false));
+			return result;
+		} catch (RuntimeException exception) {
+			logFailure("transfer_upload_failed", deviceId, trimmed, runId, transferId, exception);
+			throw exception;
 		} finally {
 			if (counted) {
 				metrics.transferFinished();
@@ -163,20 +205,43 @@ public class TransferService {
 			if (global) {
 				globalCapacity.release();
 			}
-			lock.unlock();
-			if (!lock.hasQueuedThreads()) {
-				transferLocks.remove(transferId, lock);
+			if (locked) {
+				lock.unlock();
+				if (!lock.hasQueuedThreads()) {
+					transferLocks.remove(transferId, lock);
+				}
 			}
 		}
 	}
 
 	public Records.Transfer status(UUID transferId, UUID deviceId, UUID runId) {
-		return ownedTransfer(transferId, deviceId, runId);
+		Records.Transfer transfer = ownedTransfer(transferId, deviceId, runId);
+			log.info(LogJson.event("transfer_status_requested",
+					"deviceId", deviceId,
+					"runId", runId,
+					"transferId", transferId,
+					"clientFileKey", transfer.clientFileKey(),
+					"state", transfer.state(),
+					"uploadOffset", transfer.acceptedOffset(),
+					"expectedBytes", transfer.expectedSize()));
+		return transfer;
 	}
 
 	public Records.Transfer status(UUID transferId, UUID deviceId, String deviceName, UUID runId) {
-		backups.upsertDevice(deviceId, deviceName.trim(), clock.instant());
-		return ownedTransfer(transferId, deviceId, runId);
+		String trimmed = deviceName.trim();
+		backups.upsertDevice(deviceId, trimmed, clock.instant());
+		Records.Transfer transfer = ownedTransfer(transferId, deviceId, runId);
+			log.info(LogJson.event("transfer_status_requested",
+					"deviceId", deviceId,
+					"deviceName", trimmed,
+					"deviceStatus", "active",
+					"runId", runId,
+					"transferId", transferId,
+					"clientFileKey", transfer.clientFileKey(),
+					"state", transfer.state(),
+					"uploadOffset", transfer.acceptedOffset(),
+					"expectedBytes", transfer.expectedSize()));
+		return transfer;
 	}
 
 	private void verifyOnBoundedExecutor(Records.Transfer transfer, Path partial) {
@@ -220,6 +285,13 @@ public class TransferService {
 		}
 		if (!actualHash.equals(transfer.expectedSha256())) {
 			metrics.hashFailed();
+			log.warn(LogJson.event("transfer_checksum_mismatch",
+					"deviceId", transfer.deviceId(),
+					"runId", transfer.runId(),
+					"transferId", transfer.transferId(),
+					"clientFileKey", transfer.clientFileKey(),
+					"expectedSha256", transfer.expectedSha256(),
+					"actualSha256", actualHash));
 			quarantine(partial, transfer.transferId() + "-checksum.part");
 			transfers.markRejected(transfer.transferId(), clock.instant());
 			throw new DomainException(HttpStatus.UNPROCESSABLE_CONTENT, "CHECKSUM_MISMATCH",
@@ -229,18 +301,9 @@ public class TransferService {
 		Records.ManifestEntry manifest = backups.findManifestEntry(
 						transfer.runId(), transfer.clientFileKey())
 				.orElseThrow(() -> new IllegalStateException("Manifest entry missing for transfer"));
-		String deviceFolder = backups.findDeviceName(transfer.deviceId())
-				.map(this::storageFolderName)
-				.orElseGet(() -> storageFolderName(transfer.deviceId().toString()));
 		Instant now = clock.instant();
 		UUID fileId = UUID.randomUUID();
-		Instant storageDate = manifest.capturedAt() == null ? now : manifest.capturedAt();
-		String safeName = sanitizeName(manifest.displayName());
-		String storedPath = Path.of(
-				"data", deviceFolder,
-				Integer.toString(storageDate.atZone(ZoneOffset.UTC).getYear()),
-				String.format("%02d", storageDate.atZone(ZoneOffset.UTC).getMonthValue()),
-				fileId + "_" + safeName).toString().replace('\\', '/');
+		String storedPath = Path.of("data", fileId.toString()).toString().replace('\\', '/');
 		Records.StoredFile staged = new Records.StoredFile(
 				fileId, transfer.deviceId(), transfer.clientFileKey(), manifest.displayName(),
 				manifest.relativePath(), manifest.mediaType(), manifest.mimeType(),
@@ -269,6 +332,14 @@ public class TransferService {
 				files.markCommitted(fileId);
 				transfers.markCommitted(transfer.transferId(), clock.instant());
 			});
+			log.info(LogJson.event("transfer_committed",
+					"deviceId", transfer.deviceId(),
+					"runId", transfer.runId(),
+					"transferId", transfer.transferId(),
+					"fileId", fileId,
+					"clientFileKey", transfer.clientFileKey(),
+					"expectedBytes", transfer.expectedSize(),
+					"storedPath", storedPath));
 		} catch (DataIntegrityViolationException duplicateIdentity) {
 			try {
 				Files.deleteIfExists(destination);
@@ -279,6 +350,14 @@ public class TransferService {
 				files.markDeleted(fileId);
 				transfers.markCommitted(transfer.transferId(), clock.instant());
 			});
+			log.info(LogJson.event("transfer_committed_duplicate_identity",
+					"deviceId", transfer.deviceId(),
+					"runId", transfer.runId(),
+					"transferId", transfer.transferId(),
+					"fileId", fileId,
+					"clientFileKey", transfer.clientFileKey(),
+					"expectedBytes", transfer.expectedSize(),
+					"storedPath", storedPath));
 		}
 	}
 
@@ -379,25 +458,6 @@ public class TransferService {
 		}
 	}
 
-	private String sanitizeName(String name) {
-		String sanitized = name.replaceAll("[^A-Za-z0-9._-]", "_")
-				.replaceAll("_+", "_");
-		if (sanitized.isBlank() || ".".equals(sanitized) || "..".equals(sanitized)) {
-			return "file";
-		}
-		return sanitized.length() <= 180 ? sanitized : sanitized.substring(0, 180);
-	}
-
-	private String storageFolderName(String name) {
-		String sanitized = name == null ? "" : name.trim();
-		sanitized = sanitized.replaceAll("[^A-Za-z0-9._-]", "_")
-				.replaceAll("_+", "_");
-		if (sanitized.isBlank() || ".".equals(sanitized) || "..".equals(sanitized)) {
-			return "device";
-		}
-		return sanitized.length() <= 180 ? sanitized : sanitized.substring(0, 180);
-	}
-
 	private void quarantine(Path source, String name) {
 		try {
 			Path target = storage.resolveSafe(Path.of("quarantine", name).toString());
@@ -416,6 +476,32 @@ public class TransferService {
 	private DomainException storageFailure(Throwable exception) {
 		return new DomainException(HttpStatus.INSUFFICIENT_STORAGE, "STORAGE_IO_ERROR",
 				"Storage operation could not be completed");
+	}
+
+	private void logFailure(
+			String event, UUID deviceId, String deviceName, UUID runId, UUID transferId,
+			RuntimeException exception
+	) {
+		if (exception instanceof DomainException domain) {
+			log.warn(LogJson.event(event,
+					"deviceId", deviceId,
+					"deviceName", deviceName,
+					"deviceStatus", "active",
+					"runId", runId,
+					"transferId", transferId,
+					"errorCode", domain.code(),
+					"httpStatus", domain.status().value(),
+					"message", domain.getMessage()));
+			return;
+		}
+		log.error(LogJson.event(event,
+				"deviceId", deviceId,
+				"deviceName", deviceName,
+				"deviceStatus", "active",
+				"runId", runId,
+				"transferId", transferId,
+				"errorType", exception.getClass().getSimpleName(),
+				"message", exception.getMessage()), exception);
 	}
 
 	public record UploadResult(long offset, boolean complete) {

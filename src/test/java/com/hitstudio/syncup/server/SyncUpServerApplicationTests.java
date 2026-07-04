@@ -10,6 +10,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Random;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -156,5 +157,67 @@ class SyncUpServerApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.files[0].disposition").value("PRESENT"))
 				.andExpect(jsonPath("$.files[0].fileId").value(fileId.toString()));
+	}
+
+	@Test
+	void singleLargeSegmentUploadIsAccepted() throws Exception {
+		UUID deviceId = UUID.randomUUID();
+		byte[] bytes = new byte[17 * 1024 * 1024];
+		new Random(42).nextBytes(bytes);
+		String sha = HexFormat.of().formatHex(
+				MessageDigest.getInstance("SHA-256").digest(bytes));
+
+		String created = mvc.perform(post("/api/v1/backups")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"deviceId":"%s","deviceName":"Big Phone","idempotencyKey":"run-big"}
+								""".formatted(deviceId)))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		UUID runId = UUID.fromString(json.readTree(created).get("runId").asText());
+
+		String manifest = """
+				{
+				  "deviceId":"%s",
+				  "deviceName":"Big Phone",
+				  "files":[{
+				    "clientFileKey":"video-1",
+				    "displayName":"big.bin",
+				    "relativePath":"big.bin",
+				    "mediaType":"OTHER",
+				    "mimeType":"application/octet-stream",
+				    "sizeBytes":%d,
+				    "sha256":"%s"
+				  }]
+				}
+				""".formatted(deviceId, bytes.length, sha);
+		String plan = mvc.perform(post("/api/v1/backups/{runId}/manifest", runId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(manifest))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.files[0].disposition").value("UPLOAD"))
+				.andReturn().getResponse().getContentAsString();
+		UUID transferId = UUID.fromString(
+				json.readTree(plan).get("files").get(0).get("transferId").asText());
+
+		mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
+						.header("X-SyncUp-Device-Id", deviceId)
+						.header("X-SyncUp-Device-Name", "Big Phone")
+						.header("X-SyncUp-Run-Id", runId)
+						.header("Upload-Offset", "0")
+						.contentType(MediaType.APPLICATION_OCTET_STREAM)
+						.content(bytes))
+				.andExpect(status().isNoContent())
+				.andExpect(header().string("Upload-Offset", Integer.toString(bytes.length)))
+				.andExpect(header().string("Upload-Complete", "true"));
+
+		mvc.perform(post("/api/v1/backups/{runId}/complete", runId)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"deviceId":"%s","deviceName":"Big Phone"}
+								""".formatted(deviceId)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.state").value("COMPLETED"))
+				.andExpect(jsonPath("$.fileCount").value(1));
 	}
 }

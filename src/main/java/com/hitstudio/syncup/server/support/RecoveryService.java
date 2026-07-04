@@ -68,8 +68,9 @@ public class RecoveryService implements ApplicationRunner {
 			try {
 				reconcile(transfer);
 			} catch (Exception exception) {
-				log.warn("event=transfer_recovery_failed transferId={}",
-						transfer.transferId(), exception);
+				log.warn(LogJson.event("transfer_recovery_failed",
+						"transferId", transfer.transferId(),
+						"message", exception.getMessage()), exception);
 			}
 		}
 		for (Records.StoredFile file : files.findByStatus("COMMITTED")) {
@@ -77,11 +78,13 @@ public class RecoveryService implements ApplicationRunner {
 			try {
 				if (!Files.isRegularFile(path) || Files.size(path) != file.sizeBytes()) {
 					files.markMissing(file.fileId());
-					log.warn("event=committed_file_missing fileId={}", file.fileId());
+					log.warn(LogJson.event("committed_file_missing",
+							"fileId", file.fileId()));
 				}
 			} catch (IOException exception) {
 				files.markMissing(file.fileId());
-				log.warn("event=committed_file_unreadable fileId={}", file.fileId());
+				log.warn(LogJson.event("committed_file_unreadable",
+						"fileId", file.fileId()));
 			}
 		}
 		cleanupOrphanPartials();
@@ -105,7 +108,8 @@ public class RecoveryService implements ApplicationRunner {
 						files.markCommitted(staged.fileId());
 						transfers.markCommitted(transfer.transferId(), clock.instant());
 					});
-					log.info("event=transfer_recovered transferId={}", transfer.transferId());
+					log.info(LogJson.event("transfer_recovered",
+							"transferId", transfer.transferId()));
 					return;
 				}
 				files.markDeleted(staged.fileId());
@@ -151,9 +155,11 @@ public class RecoveryService implements ApplicationRunner {
 			try {
 				Files.deleteIfExists(partial);
 				transfers.expire(transfer.transferId());
-				log.info("event=partial_expired transferId={}", transfer.transferId());
+				log.info(LogJson.event("partial_expired",
+						"transferId", transfer.transferId()));
 			} catch (IOException exception) {
-				log.warn("event=partial_cleanup_failed transferId={}", transfer.transferId());
+				log.warn(LogJson.event("partial_cleanup_failed",
+						"transferId", transfer.transferId()));
 			}
 		}
 		cleanupOrphanPartials();
@@ -171,7 +177,7 @@ public class RecoveryService implements ApplicationRunner {
 					.filter(path -> !live.contains(path))
 					.forEach(path -> deleteIfOlderThan(path, cutoff));
 		} catch (IOException exception) {
-			log.warn("event=orphan_partial_scan_failed");
+			log.warn(LogJson.event("orphan_partial_scan_failed"));
 		}
 	}
 
@@ -182,7 +188,7 @@ public class RecoveryService implements ApplicationRunner {
 				Files.deleteIfExists(path);
 			}
 		} catch (IOException exception) {
-			log.debug("event=orphan_partial_delete_failed");
+			log.debug(LogJson.event("orphan_partial_delete_failed"));
 		}
 	}
 
