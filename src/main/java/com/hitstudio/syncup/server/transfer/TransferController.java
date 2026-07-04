@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.constraints.NotBlank;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/transfers")
 public class TransferController {
 	public static final String DEVICE_HEADER = "X-SyncUp-Device-Id";
+	public static final String DEVICE_NAME_HEADER = "X-SyncUp-Device-Name";
 	public static final String RUN_HEADER = "X-SyncUp-Run-Id";
 	public static final String OFFSET_HEADER = "Upload-Offset";
 
@@ -31,12 +33,13 @@ public class TransferController {
 	ResponseEntity<Void> upload(
 			@PathVariable UUID transferId,
 			@RequestHeader(DEVICE_HEADER) UUID deviceId,
+			@RequestHeader(DEVICE_NAME_HEADER) @NotBlank String deviceName,
 			@RequestHeader(RUN_HEADER) UUID runId,
 			@RequestHeader(OFFSET_HEADER) long uploadOffset,
 			HttpServletRequest request
 	) throws IOException {
 		var result = service.upload(
-				transferId, deviceId, runId, uploadOffset,
+				transferId, deviceId, deviceName, runId, uploadOffset,
 				request.getContentLengthLong(), request.getInputStream());
 		return ResponseEntity.noContent()
 				.header(OFFSET_HEADER, Long.toString(result.offset()))
@@ -48,9 +51,10 @@ public class TransferController {
 	TransferStatus status(
 			@PathVariable UUID transferId,
 			@RequestHeader(DEVICE_HEADER) UUID deviceId,
+			@RequestHeader(DEVICE_NAME_HEADER) @NotBlank String deviceName,
 			@RequestHeader(RUN_HEADER) UUID runId
 	) {
-		Records.Transfer transfer = service.status(transferId, deviceId, runId);
+		Records.Transfer transfer = service.status(transferId, deviceId, deviceName, runId);
 		return new TransferStatus(
 				transfer.transferId(), transfer.state(), transfer.acceptedOffset(),
 				transfer.expectedSize(), transfer.expiresAt());

@@ -84,6 +84,7 @@ public class TransferService {
 	public UploadResult upload(
 			UUID transferId,
 			UUID deviceId,
+			String deviceName,
 			UUID runId,
 			long uploadOffset,
 			long contentLength,
@@ -99,6 +100,7 @@ public class TransferService {
 		if (!lock.tryLock()) {
 			throw capacity("This transfer already has an active writer");
 		}
+		backups.upsertDevice(deviceId, deviceName.trim(), clock.instant());
 		Semaphore perDevice = deviceCapacity.computeIfAbsent(deviceId,
 				ignored -> new Semaphore(properties.transfer().maxConcurrentPerDevice(), true));
 		boolean global = false;
@@ -172,6 +174,11 @@ public class TransferService {
 		return ownedTransfer(transferId, deviceId, runId);
 	}
 
+	public Records.Transfer status(UUID transferId, UUID deviceId, String deviceName, UUID runId) {
+		backups.upsertDevice(deviceId, deviceName.trim(), clock.instant());
+		return ownedTransfer(transferId, deviceId, runId);
+	}
+
 	private void verifyOnBoundedExecutor(Records.Transfer transfer, Path partial) {
 		FutureTask<Void> task = new FutureTask<>(() -> {
 			Timer.Sample sample = Timer.start();
@@ -222,12 +229,15 @@ public class TransferService {
 		Records.ManifestEntry manifest = backups.findManifestEntry(
 						transfer.runId(), transfer.clientFileKey())
 				.orElseThrow(() -> new IllegalStateException("Manifest entry missing for transfer"));
+		String deviceFolder = backups.findDeviceName(transfer.deviceId())
+				.map(this::storageFolderName)
+				.orElseGet(() -> storageFolderName(transfer.deviceId().toString()));
 		Instant now = clock.instant();
 		UUID fileId = UUID.randomUUID();
 		Instant storageDate = manifest.capturedAt() == null ? now : manifest.capturedAt();
 		String safeName = sanitizeName(manifest.displayName());
 		String storedPath = Path.of(
-				"data", transfer.deviceId().toString(),
+				"data", deviceFolder,
 				Integer.toString(storageDate.atZone(ZoneOffset.UTC).getYear()),
 				String.format("%02d", storageDate.atZone(ZoneOffset.UTC).getMonthValue()),
 				fileId + "_" + safeName).toString().replace('\\', '/');
@@ -374,6 +384,16 @@ public class TransferService {
 				.replaceAll("_+", "_");
 		if (sanitized.isBlank() || ".".equals(sanitized) || "..".equals(sanitized)) {
 			return "file";
+		}
+		return sanitized.length() <= 180 ? sanitized : sanitized.substring(0, 180);
+	}
+
+	private String storageFolderName(String name) {
+		String sanitized = name == null ? "" : name.trim();
+		sanitized = sanitized.replaceAll("[^A-Za-z0-9._-]", "_")
+				.replaceAll("_+", "_");
+		if (sanitized.isBlank() || ".".equals(sanitized) || "..".equals(sanitized)) {
+			return "device";
 		}
 		return sanitized.length() <= 180 ? sanitized : sanitized.substring(0, 180);
 	}

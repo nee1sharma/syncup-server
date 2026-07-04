@@ -48,6 +48,7 @@ capabilities.
 ```json
 {
   "deviceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "deviceName": "My Phone",
   "files": [
     {
       "clientFileKey": "media-store-id-or-other-stable-key",
@@ -71,7 +72,7 @@ Each plan item is `PRESENT`, `UPLOAD`, or `RESUME`. Upload/resume items contain
 `POST /api/v1/backups/{runId}/cancel` both accept:
 
 ```json
-{"deviceId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
+{"deviceId":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","deviceName":"My Phone"}
 ```
 
 ### Upload
@@ -82,7 +83,12 @@ It requires:
 - `Content-Length`
 - `Upload-Offset`
 - `X-SyncUp-Device-Id`
+- `X-SyncUp-Device-Name`
 - `X-SyncUp-Run-Id`
+
+Backed-up files are stored beneath a sanitized `deviceName` folder within
+`syncup-data/data/`, while `deviceId` remains the ownership key for metadata and
+authorization checks.
 
 A successful segment returns `204` with the durable `Upload-Offset` and
 `Upload-Complete`. An offset conflict returns `409` and the authoritative

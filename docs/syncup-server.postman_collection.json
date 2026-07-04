@@ -1,0 +1,408 @@
+{
+  "info": {
+    "_postman_id": "6d5b5d92-5d8d-4f16-9ad1-6fd5f2f4f2c1",
+    "name": "SyncUp Server API v1",
+    "description": "Postman collection for SyncUp Server HTTP APIs. Set baseUrl and the sample IDs/variables before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Server",
+      "item": [
+        {
+          "name": "Get Server Identity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/server"
+            },
+            "description": "Returns the stable server identity, API version, and advertised capabilities."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backup Runs",
+      "item": [
+        {
+          "name": "Create Backup Run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceName\": \"{{deviceName}}\",\n  \"idempotencyKey\": \"backup-{{timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/backups"
+            },
+            "description": "Creates a backup run. Reusing the same deviceId and idempotencyKey returns the existing run."
+          }
+        },
+        {
+          "name": "Create Manifest Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceName\": \"{{deviceName}}\",\n  \"files\": [\n    {\n      \"clientFileKey\": \"media-store-12345\",\n      \"displayName\": \"IMG_0001.jpg\",\n      \"relativePath\": \"DCIM/Camera/IMG_0001.jpg\",\n      \"mediaType\": \"IMAGE\",\n      \"mimeType\": \"image/jpeg\",\n      \"sizeBytes\": {{fileSize}},\n      \"sha256\": \"{{fileSha256}}\",\n      \"capturedAt\": \"2026-07-04T10:00:00Z\",\n      \"modifiedAt\": \"2026-07-04T10:00:00Z\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/backups/{{runId}}/manifest"
+            },
+            "description": "Submits a manifest batch for a run and returns upload/resume/present plan items."
+          }
+        },
+        {
+          "name": "Complete Backup Run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceName\": \"{{deviceName}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/backups/{{runId}}/complete"
+            },
+            "description": "Marks the backup run complete. All transfers for the run must already be committed."
+          }
+        },
+        {
+          "name": "Cancel Backup Run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceName\": \"{{deviceName}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/backups/{{runId}}/cancel"
+            },
+            "description": "Cancels an active backup run."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfers",
+      "item": [
+        {
+          "name": "Get Transfer Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "X-SyncUp-Device-Id",
+                "value": "{{deviceId}}"
+              },
+              {
+                "key": "X-SyncUp-Device-Name",
+                "value": "{{deviceName}}"
+              },
+              {
+                "key": "X-SyncUp-Run-Id",
+                "value": "{{runId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transfers/{{transferId}}"
+            },
+            "description": "Returns transfer state and the authoritative durable upload offset."
+          }
+        },
+        {
+          "name": "Upload Transfer Content",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              },
+              {
+                "key": "Content-Length",
+                "value": "{{contentLength}}"
+              },
+              {
+                "key": "Upload-Offset",
+                "value": "{{uploadOffset}}"
+              },
+              {
+                "key": "X-SyncUp-Device-Id",
+                "value": "{{deviceId}}"
+              },
+              {
+                "key": "X-SyncUp-Device-Name",
+                "value": "{{deviceName}}"
+              },
+              {
+                "key": "X-SyncUp-Run-Id",
+                "value": "{{runId}}"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "{{filePath}}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transfers/{{transferId}}/content"
+            },
+            "description": "Uploads a binary segment. Set filePath to the segment file and update Upload-Offset for resumable uploads."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore Metadata",
+      "item": [
+        {
+          "name": "List Files",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/files?deviceId={{deviceId}}&mediaType=IMAGE&capturedAfter=2026-01-01T00:00:00Z&cursor={{cursor}}&limit=100"
+            },
+            "description": "Lists committed files. Enable whichever query parameters you want to test in Postman."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore Content",
+      "item": [
+        {
+          "name": "Download File Content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "*/*"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/content"
+            },
+            "description": "Downloads the full file content."
+          }
+        },
+        {
+          "name": "Download File Range",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Range",
+                "value": "bytes=1048576-"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/content"
+            },
+            "description": "Downloads a single byte range."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operations",
+      "item": [
+        {
+          "name": "Actuator Root",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrlWithoutApi}}/actuator"
+            },
+            "description": "Lists exposed actuator links."
+          }
+        },
+        {
+          "name": "Actuator Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrlWithoutApi}}/actuator/health"
+            },
+            "description": "Returns application health, including the custom storage health indicator."
+          }
+        },
+        {
+          "name": "Actuator Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrlWithoutApi}}/actuator/info"
+            },
+            "description": "Returns app metadata such as the declared API version."
+          }
+        },
+        {
+          "name": "Actuator Liveness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrlWithoutApi}}/actuator/health/liveness"
+            },
+            "description": "Liveness probe endpoint."
+          }
+        },
+        {
+          "name": "Actuator Readiness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrlWithoutApi}}/actuator/health/readiness"
+            },
+            "description": "Readiness probe endpoint."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8500/api/v1"
+    },
+    {
+      "key": "baseUrlWithoutApi",
+      "value": "http://localhost:8500"
+    },
+    {
+      "key": "deviceId",
+      "value": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    },
+    {
+      "key": "deviceName",
+      "value": "My Phone"
+    },
+    {
+      "key": "runId",
+      "value": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    },
+    {
+      "key": "transferId",
+      "value": "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    },
+    {
+      "key": "fileId",
+      "value": "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    },
+    {
+      "key": "cursor",
+      "value": ""
+    },
+    {
+      "key": "filePath",
+      "value": "/absolute/path/to/file.jpg"
+    },
+    {
+      "key": "contentLength",
+      "value": "123456"
+    },
+    {
+      "key": "uploadOffset",
+      "value": "0"
+    },
+    {
+      "key": "fileSize",
+      "value": "123456"
+    },
+    {
+      "key": "fileSha256",
+      "value": "64-lower-or-upper-case-hex-characters"
+    },
+    {
+      "key": "timestamp",
+      "value": "1720080000"
+    }
+  ]
+}

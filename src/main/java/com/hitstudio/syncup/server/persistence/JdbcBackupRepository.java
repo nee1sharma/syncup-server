@@ -29,6 +29,17 @@ public class JdbcBackupRepository {
 				.update();
 	}
 
+	public Optional<String> findDeviceName(UUID deviceId) {
+		return jdbc.sql("""
+				SELECT device_name
+				FROM devices
+				WHERE device_id = :deviceId
+				""")
+				.param("deviceId", deviceId.toString())
+				.query(String.class)
+				.optional();
+	}
+
 	public Optional<Records.BackupRun> findRunById(UUID runId) {
 		return jdbc.sql("""
 				SELECT run_id, device_id, idempotency_key, state, started_at, completed_at,

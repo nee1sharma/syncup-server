@@ -45,7 +45,7 @@ public class BackupController {
 			@PathVariable UUID runId,
 			@Valid @RequestBody BackupDtos.RunActionRequest request
 	) {
-		return service.complete(runId, request.deviceId());
+		return service.complete(runId, request.deviceId(), request.deviceName());
 	}
 
 	@PostMapping("/{runId}/cancel")
@@ -53,6 +53,6 @@ public class BackupController {
 			@PathVariable UUID runId,
 			@Valid @RequestBody BackupDtos.RunActionRequest request
 	) {
-		return service.cancel(runId, request.deviceId());
+		return service.cancel(runId, request.deviceId(), request.deviceName());
 	}
 }

@@ -59,6 +59,7 @@ class SyncUpServerApplicationTests {
 		String manifest = """
 				{
 				  "deviceId":"%s",
+				  "deviceName":"Test Phone",
 				  "files":[{
 				    "clientFileKey":"photo-1",
 				    "displayName":"hello.txt",
@@ -81,8 +82,9 @@ class SyncUpServerApplicationTests {
 
 		byte[] firstSegment = "hello ".getBytes(StandardCharsets.UTF_8);
 		byte[] secondSegment = "syncup".getBytes(StandardCharsets.UTF_8);
-		mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
+				mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
 						.header("X-SyncUp-Device-Id", deviceId)
+						.header("X-SyncUp-Device-Name", "Test Phone")
 						.header("X-SyncUp-Run-Id", runId)
 						.header("Upload-Offset", "0")
 						.contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -91,8 +93,9 @@ class SyncUpServerApplicationTests {
 				.andExpect(header().string("Upload-Offset", Integer.toString(firstSegment.length)))
 				.andExpect(header().string("Upload-Complete", "false"));
 
-		mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
+				mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
 						.header("X-SyncUp-Device-Id", deviceId)
+						.header("X-SyncUp-Device-Name", "Test Phone")
 						.header("X-SyncUp-Run-Id", runId)
 						.header("Upload-Offset", "0")
 						.contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -101,8 +104,9 @@ class SyncUpServerApplicationTests {
 				.andExpect(header().string("Upload-Offset", Integer.toString(firstSegment.length)))
 				.andExpect(jsonPath("$.code").value("UPLOAD_OFFSET_MISMATCH"));
 
-		mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
+				mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
 						.header("X-SyncUp-Device-Id", deviceId)
+						.header("X-SyncUp-Device-Name", "Test Phone")
 						.header("X-SyncUp-Run-Id", runId)
 						.header("Upload-Offset", Integer.toString(firstSegment.length))
 						.contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -113,7 +117,9 @@ class SyncUpServerApplicationTests {
 
 		mvc.perform(post("/api/v1/backups/{runId}/complete", runId)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"deviceId\":\"" + deviceId + "\"}"))
+						.content("""
+								{"deviceId":"%s","deviceName":"Test Phone"}
+								""".formatted(deviceId)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.state").value("COMPLETED"))
 				.andExpect(jsonPath("$.fileCount").value(1));

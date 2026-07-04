@@ -35,6 +35,7 @@ public final class BackupDtos {
 
 	public record ManifestBatchRequest(
 			@NotNull UUID deviceId,
+			@NotBlank @Size(max = 120) String deviceName,
 			@NotEmpty List<@Valid ManifestFileRequest> files
 	) {
 	}
@@ -72,6 +73,9 @@ public final class BackupDtos {
 	) {
 	}
 
-	public record RunActionRequest(@NotNull UUID deviceId) {
+	public record RunActionRequest(
+			@NotNull UUID deviceId,
+			@NotBlank @Size(max = 120) String deviceName
+	) {
 	}
 }

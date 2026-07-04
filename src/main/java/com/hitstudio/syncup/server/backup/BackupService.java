@@ -77,6 +77,7 @@ public class BackupService {
 	public BackupDtos.ManifestPlanResponse submitManifest(
 			UUID runId, BackupDtos.ManifestBatchRequest request
 	) {
+		backups.upsertDevice(request.deviceId(), request.deviceName().trim(), clock.instant());
 		if (request.files().size() > properties.manifest().maxBatchFiles()) {
 			throw new DomainException(HttpStatus.PAYLOAD_TOO_LARGE, "MANIFEST_BATCH_TOO_LARGE",
 					"Manifest batch exceeds the configured file limit");
@@ -116,7 +117,7 @@ public class BackupService {
 			Records.Transfer transfer = transfers.findForManifest(runId, item.clientFileKey())
 					.filter(current -> current.expectedSize() == item.sizeBytes()
 							&& current.expectedSha256().equals(sha))
-					.orElseGet(() -> newTransfer(run, item, sha));
+					.orElseGet(() -> newTransfer(run, item, sha, request.deviceName()));
 			String disposition = transfer.acceptedOffset() > 0 ? "RESUME" : "UPLOAD";
 			insertManifest(runId, item, sha, disposition);
 			plan.add(new BackupDtos.ManifestPlanItem(
@@ -128,7 +129,8 @@ public class BackupService {
 	}
 
 	@Transactional
-	public BackupDtos.BackupRunResponse complete(UUID runId, UUID deviceId) {
+	public BackupDtos.BackupRunResponse complete(UUID runId, UUID deviceId, String deviceName) {
+		backups.upsertDevice(deviceId, deviceName.trim(), clock.instant());
 		Records.BackupRun run = ownedRun(runId, deviceId);
 		if ("COMPLETED".equals(run.state())) {
 			return response(run);
@@ -146,7 +148,8 @@ public class BackupService {
 	}
 
 	@Transactional
-	public BackupDtos.BackupRunResponse cancel(UUID runId, UUID deviceId) {
+	public BackupDtos.BackupRunResponse cancel(UUID runId, UUID deviceId, String deviceName) {
+		backups.upsertDevice(deviceId, deviceName.trim(), clock.instant());
 		Records.BackupRun run = ownedRun(runId, deviceId);
 		if ("COMPLETED".equals(run.state())) {
 			throw new DomainException(HttpStatus.CONFLICT, "RUN_COMPLETED",
@@ -168,18 +171,28 @@ public class BackupService {
 	}
 
 	private Records.Transfer newTransfer(
-			Records.BackupRun run, BackupDtos.ManifestFileRequest item, String sha
+			Records.BackupRun run, BackupDtos.ManifestFileRequest item, String sha, String deviceName
 	) {
 		Instant now = clock.instant();
 		UUID id = UUID.randomUUID();
 		Records.Transfer transfer = new Records.Transfer(
 				id, run.runId(), run.deviceId(), item.clientFileKey(),
-				Path.of("partial", run.deviceId().toString(), run.runId().toString(),
+				Path.of("partial", storageFolderName(deviceName), run.runId().toString(),
 						id + ".part").toString().replace('\\', '/'),
 				item.sizeBytes(), sha, 0, "PENDING", now,
 				now.plus(properties.storage().partialRetention()), null);
 		transfers.insert(transfer);
 		return transfer;
+	}
+
+	private String storageFolderName(String deviceName) {
+		String value = deviceName == null ? "" : deviceName.trim();
+		String sanitized = value.replaceAll("[^A-Za-z0-9._-]", "_")
+				.replaceAll("_+", "_");
+		if (sanitized.isBlank() || ".".equals(sanitized) || "..".equals(sanitized)) {
+			return "device";
+		}
+		return sanitized.length() <= 180 ? sanitized : sanitized.substring(0, 180);
 	}
 
 	private void insertManifest(
