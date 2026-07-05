@@ -9,12 +9,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Random;
 import java.util.HexFormat;
+import java.util.Random;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -38,6 +41,9 @@ class SyncUpServerApplicationTests {
 
 	@Value("${info.app.version}")
 	String appVersion;
+
+	@Value("${syncup.storage.root}")
+	String storageRoot;
 
 	@Test
 	void contextLoads() {
@@ -117,7 +123,7 @@ class SyncUpServerApplicationTests {
 				.andExpect(header().string("Upload-Offset", Integer.toString(firstSegment.length)))
 				.andExpect(jsonPath("$.code").value("UPLOAD_OFFSET_MISMATCH"));
 
-				mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
+		mvc.perform(put("/api/v1/transfers/{transferId}/content", transferId)
 						.header("X-SyncUp-Device-Id", deviceId)
 						.header("X-SyncUp-Device-Name", "Test Phone")
 						.header("X-SyncUp-Run-Id", runId)
@@ -127,6 +133,11 @@ class SyncUpServerApplicationTests {
 				.andExpect(status().isNoContent())
 				.andExpect(header().string("Upload-Offset", Integer.toString(bytes.length)))
 				.andExpect(header().string("Upload-Complete", "true"));
+
+		try (var paths = Files.walk(Path.of(storageRoot, "data"))) {
+			assertTrue(paths.filter(Files::isRegularFile)
+					.anyMatch(path -> path.getFileName().toString().equals("hello.txt")));
+		}
 
 		mvc.perform(post("/api/v1/backups/{runId}/complete", runId)
 						.contentType(MediaType.APPLICATION_JSON)

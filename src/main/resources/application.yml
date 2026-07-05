@@ -33,6 +33,7 @@ syncup:
     port: 9999
     max-datagram-bytes: 2048
   storage:
+    # Override from the command line with --syncup.storage.root=/absolute/path
     root: ./syncup-data
     minimum-free-bytes: 5368709120
     partial-retention: 7d

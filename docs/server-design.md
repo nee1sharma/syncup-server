@@ -149,12 +149,14 @@ syncup:
     partial-retention: 7d
   transfer:
     segment-bytes: 8388608
-    max-segment-bytes: 16777216
+    max-segment-bytes: 4294967296
+    max-file-bytes: 1099511627776
     max-concurrent-per-device: 2
     max-concurrent-total: 4
     idle-timeout: 10m
   manifest:
-    max-batch-files: 100
+    max-batch-files: 500
+    max-body-bytes: 4194304
 
 management:
   endpoints:
@@ -286,7 +288,8 @@ Use a unique committed-file constraint on `(device_id, sha256, size_bytes)`. Ind
 ```text
 syncup-data/
 ├── data/
-│   └── <file-id>
+│   └── <file-id>/
+│       └── <original-name>
 ├── partial/
 │   └── <transfer-id>.part
 ├── quarantine/
@@ -301,9 +304,9 @@ Rules:
 - Generate every physical storage path on the server.
 - Reject traversal, absolute paths, control characters, invalid sizes, and invalid hashes.
 - Write only under `partial/` until expected size and SHA-256 are verified.
-- Atomically move verified content into `data/`.
+- Atomically move verified content into a unique `data/<file-id>/` directory.
 - Mark metadata committed only after the move succeeds.
-- Resolve collisions with `file_id`; never overwrite an existing file.
+- Preserve the original filename as the file leaf and resolve collisions with `file_id`; never overwrite an existing file.
 - Never expose database/internal paths through file APIs.
 
 ## 11. Discovery
@@ -334,7 +337,7 @@ The first server implementation has no application-level security:
 - No TLS/HTTPS
 
 The client includes its stable `deviceId` in backup requests. The server uses it only to organize metadata and ownership; it is not proof of identity.
-The client also sends `deviceName`. The server stores files under server-generated names in `data/` and keeps the latest display name in the `devices` table.
+The client also sends `deviceName`. The server stores files under a unique `data/<file-id>/` directory and keeps the original display name as the file leaf, while also keeping the latest display name in the `devices` table.
 
 All SyncUp API endpoints are reachable by devices that can access the server's LAN address. Any such device could inspect or restore any backup if it knows or discovers the API. Therefore:
 
@@ -356,13 +359,19 @@ The API should avoid assumptions that block future security. Device IDs remain e
 7. Plan returns `PRESENT`, `UPLOAD`, `RESUME`, or `REJECTED`.
 8. Completing the run calculates durable totals from persisted state.
 
-Manifest limits:
+Manifest and backup limits:
 
-- Maximum files per batch
-- Maximum JSON body size
-- Maximum filename/path/mime lengths
-- SHA-256 format and supported media type validation
-- Non-negative size and defensible per-file size limit
+- Maximum files per manifest submission: `500`
+- Maximum JSON body size: `4 MiB`
+- Maximum file size: `1 TiB`
+- Multiple backup runs can exist, but active upload streams are capped at `2` per device and `4` total
+- Default segment size: `8 MiB`
+- Maximum segment size: `4 GiB`
+- Supported logical media types: `IMAGE`, `VIDEO`, `AUDIO`, `DOCUMENT`, `OTHER`
+- `displayName` must be a plain filename without path separators or dot segments
+- `relativePath` must be a safe relative path with no traversal segments
+- `mimeType` must resemble a normal type/subtype value
+- SHA-256 must be a 64-character hexadecimal digest
 - No duplicate `clientFileKey` within a run
 
 ### End-to-end backup and restore sequence

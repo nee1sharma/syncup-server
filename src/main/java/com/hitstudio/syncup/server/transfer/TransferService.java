@@ -303,7 +303,7 @@ public class TransferService {
 				.orElseThrow(() -> new IllegalStateException("Manifest entry missing for transfer"));
 		Instant now = clock.instant();
 		UUID fileId = UUID.randomUUID();
-		String storedPath = Path.of("data", fileId.toString()).toString().replace('\\', '/');
+		String storedPath = storedPath(fileId, manifest.displayName());
 		Records.StoredFile staged = new Records.StoredFile(
 				fileId, transfer.deviceId(), transfer.clientFileKey(), manifest.displayName(),
 				manifest.relativePath(), manifest.mediaType(), manifest.mimeType(),
@@ -359,6 +359,11 @@ public class TransferService {
 					"expectedBytes", transfer.expectedSize(),
 					"storedPath", storedPath));
 		}
+	}
+
+	private String storedPath(UUID fileId, String originalName) {
+		// Keep the original filename as the leaf while isolating each committed file.
+		return Path.of("data", fileId.toString(), originalName).toString().replace('\\', '/');
 	}
 
 	private void writeSegment(Path partial, long offset, long length, InputStream input) {

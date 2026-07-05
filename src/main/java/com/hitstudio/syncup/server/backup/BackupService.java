@@ -310,9 +310,10 @@ public class BackupService {
 					"Unsupported logical mediaType");
 		}
 		if (hasControl(item.displayName()) || item.displayName().contains("/")
-				|| item.displayName().contains("\\")) {
+				|| item.displayName().contains("\\")
+				|| ".".equals(item.displayName()) || "..".equals(item.displayName())) {
 			throw new DomainException(HttpStatus.BAD_REQUEST, "INVALID_FILE_NAME",
-					"displayName must be a plain file name without path separators");
+					"displayName must be a plain file name without path separators or dot segments");
 		}
 		String relative = item.relativePath();
 		if (relative != null && !relative.isBlank()) {

@@ -5,6 +5,5 @@ syncup-data/
 *.log
 .DS_Store
 .idea
-/build.gradle
 /.gitattributes
 gradle*

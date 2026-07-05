@@ -16,10 +16,13 @@ properties, for example:
 
 ```bash
 ./gradlew bootRun --args='--syncup.server.name=Home Mac --syncup.storage.root=/Volumes/Backup/syncup-data'
+java -jar build/libs/syncup-server-1.0.0.jar --syncup.storage.root=/Volumes/Backup/syncup-data
 ```
 
 Do not forward the HTTP or discovery ports, publish them through a tunnel, or run
 the service on an untrusted network.
+
+For a user-facing setup and configuration guide, see [docs/user-guide.md](docs/user-guide.md).
 
 ## HTTP API v1
 
@@ -68,6 +71,19 @@ version, and capabilities.
 Each plan item is `PRESENT`, `UPLOAD`, or `RESUME`. Upload/resume items contain
 `transferId`, `uploadOffset`, and the preferred `segmentBytes`.
 
+### Backup limits and supported files
+
+- Manifest submissions accept up to `500` files per request.
+- Manifest JSON bodies are limited to `4 MiB`.
+- Each file can be up to `1 TiB`.
+- Multiple backup runs can exist, but active upload streams are limited to `2` per device and `4` total across the server.
+- Upload segments default to `8 MiB`; the maximum allowed segment size is `4 GiB`.
+- Supported logical media types are `IMAGE`, `VIDEO`, `AUDIO`, `DOCUMENT`, and `OTHER`.
+- `displayName` must be a plain filename with no path separators or dot segments.
+- `relativePath` must be a safe relative path with no traversal segments.
+- `mimeType` must look like a normal media type such as `image/jpeg`.
+- `sha256` must be a 64-character hexadecimal digest.
+
 `POST /api/v1/backups/{runId}/complete` and
 `POST /api/v1/backups/{runId}/cancel` both accept:
 
@@ -86,9 +102,9 @@ It requires:
 - `X-SyncUp-Device-Name`
 - `X-SyncUp-Run-Id`
 
-Backed-up files are stored under server-generated names within
-`syncup-data/data/`, while `deviceId` remains the ownership key for metadata and
-authorization checks.
+Backed-up files are stored under `syncup-data/data/<file-id>/<displayName>`, so
+the original filename is preserved on disk while `deviceId` remains the
+ownership key for metadata and authorization checks.
 
 A successful segment returns `204` with the durable `Upload-Offset` and
 `Upload-Complete`. An offset conflict returns `409` and the authoritative
@@ -143,13 +159,13 @@ The server unicasts a response to the sender:
 ## Release a build
 
 1. Bump `info.app.version` in `src/main/resources/application.yml` to the next release version, usually the minor component, for example `1.0.0` -> `1.1.0`.
-2. For a non-SNAPSHOT artifact name, bump `version` in `build.gradle` as well.
-3. Run `./gradlew clean test bootJar`.
-4. Start the packaged jar from `build/libs/` with `java -jar`.
+2. Bump `version` in `build.gradle` to keep the runnable jar name aligned with the release version.
+3. Create a Git tag that matches the app version, for example `v1.0.0`, and push it to GitHub.
+4. GitHub Actions runs `./gradlew clean test bootJar` and publishes the runnable jar plus a versioned copy of `docs/user-guide.md` as release assets.
 
 Example:
 
 ```bash
 ./gradlew clean test bootJar
-java -jar build/libs/syncup-server-0.0.1-SNAPSHOT.jar
+java -jar build/libs/syncup-server-1.0.0.jar
 ```

@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release jar
+        run: ./gradlew clean test bootJar
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${GITHUB_REF_NAME#v}"
+          app_version=$(awk '/^    version:[[:space:]]/ {print $2; exit}' src/main/resources/application.yml)
+
+          if [[ -z "${app_version}" ]]; then
+            echo "Could not read info.app.version from src/main/resources/application.yml" >&2
+            exit 1
+          fi
+
+          if [[ "${version}" != "${app_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match application version ${app_version}" >&2
+            exit 1
+          fi
+
+          jar_file=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | head -n 1)
+          if [[ -z "${jar_file}" ]]; then
+            echo "Boot jar not found under build/libs" >&2
+            exit 1
+          fi
+
+          mkdir -p release-assets
+          cp "${jar_file}" "release-assets/syncup-server-${version}.jar"
+          cp docs/user-guide.md "release-assets/syncup-user-guide-${version}.md"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: SyncUp Server ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release-assets/*
