@@ -85,6 +85,9 @@ syncup-data/
 └── syncup.lock
 ```
 
+Committed files are stored under `data/<file-id>/<displayName>`. The
+`deviceName` stays as metadata and is not used as the on-disk folder name.
+
 ## GitHub Releases
 
 Each GitHub release uploads the runnable jar and a versioned copy of this user
