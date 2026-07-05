@@ -2,6 +2,7 @@ package com.hitstudio.syncup.server;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -35,8 +36,19 @@ class SyncUpServerApplicationTests {
 	@Autowired
 	ObjectMapper json;
 
+	@Value("${info.app.version}")
+	String appVersion;
+
 	@Test
 	void contextLoads() {
+	}
+
+	@Test
+	void serverIdentityIncludesApplicationVersion() throws Exception {
+		mvc.perform(get("/api/v1/server"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.apiVersion").value("v1"))
+				.andExpect(jsonPath("$.appVersion").value(appVersion));
 	}
 
 	@Test

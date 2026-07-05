@@ -34,6 +34,9 @@ curl --fail-with-body \
   "$BASE_URL/api/v1/server"
 ```
 
+The JSON response includes `serverId`, `serverName`, `apiVersion`,
+`appVersion`, and `capabilities`.
+
 ## Backup runs
 
 ### `POST /api/v1/backups`

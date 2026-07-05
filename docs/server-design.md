@@ -386,7 +386,7 @@ sequenceDiagram
     Client->>Discovery: SYNCUP_DISCOVER (requestId, API v1)
     Discovery-->>Client: Server ID, name, base URL, capabilities
     Client->>Backup: GET /api/v1/server
-    Backup-->>Client: Stable identity and capabilities
+    Backup-->>Client: Stable identity, app version, and capabilities
 
     Client->>Backup: POST /api/v1/backups<br/>(deviceId, deviceName, idempotencyKey)
     Backup->>DB: Upsert device and create/find run

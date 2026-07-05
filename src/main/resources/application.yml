@@ -62,4 +62,6 @@ management:
 info:
   app:
     name: SyncUp Server
+    # Release version. Bump the minor component on each release.
+    version: 1.0.0
     api-version: v1

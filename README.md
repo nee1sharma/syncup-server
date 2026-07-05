@@ -28,8 +28,8 @@ Validation failures use RFC 9457 Problem Details and include a stable `code`.
 
 ### Server
 
-`GET /api/v1/server` returns the stable server identity, API version, and
-capabilities.
+`GET /api/v1/server` returns the stable server identity, API version, app
+version, and capabilities.
 
 ### Backup run
 
@@ -140,10 +140,16 @@ The server unicasts a response to the sender:
 }
 ```
 
-## Verify and package
+## Release a build
+
+1. Bump `info.app.version` in `src/main/resources/application.yml` to the next release version, usually the minor component, for example `1.0.0` -> `1.1.0`.
+2. For a non-SNAPSHOT artifact name, bump `version` in `build.gradle` as well.
+3. Run `./gradlew clean test bootJar`.
+4. Start the packaged jar from `build/libs/` with `java -jar`.
+
+Example:
 
 ```bash
-./gradlew clean test
-./gradlew bootJar
+./gradlew clean test bootJar
 java -jar build/libs/syncup-server-0.0.1-SNAPSHOT.jar
 ```
