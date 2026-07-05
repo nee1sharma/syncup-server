@@ -65,6 +65,6 @@ management:
 info:
   app:
     name: SyncUp Server
-    # Release version. Bump the minor component on each release.
-    version: 1.0.0
+    # Release version. Keep this in sync with build.gradle and the Git tag.
+    version: 1.0.3
     api-version: v1

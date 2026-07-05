@@ -31,24 +31,24 @@ port `9999`.
 
 ## Default Settings
 
-| Area | Default | Notes |
-|---|---|---|
-| HTTP bind address | `0.0.0.0` | Listens on all interfaces |
-| HTTP port | `8500` | API and restore endpoint port |
-| Server name | `hitstudio` | Reported to discovery clients |
-| Discovery | `enabled` | UDP discovery is on by default |
-| Discovery port | `9999` | UDP port used for server discovery |
-| Storage root | `./syncup-data` | Local data directory for SQLite and files |
-| Minimum free space | `5 GiB` | Uploads stop before disk space gets too low |
-| Partial retention | `7d` | How long abandoned partial uploads are kept |
-| Segment size | `8 MiB` | Preferred upload chunk size |
-| Max segment size | `4 GiB` | Largest allowed upload request body |
-| Max file size | `1 TiB` | Largest single file that can be backed up |
+| Area | Default                   | Notes |
+|---|---------------------------|---|
+| HTTP bind address | `0.0.0.0`                 | Listens on all interfaces |
+| HTTP port | `8500`                    | API and restore endpoint port |
+| Server name | `hitstudio`               | Reported to discovery clients |
+| Discovery | `enabled`                 | UDP discovery is on by default |
+| Discovery port | `9999`                    | UDP port used for server discovery |
+| Storage root | `./syncup-data`           | Local data directory for SQLite and files |
+| Minimum free space | `5 GiB`                   | Uploads stop before disk space gets too low |
+| Partial retention | `7d`                      | How long abandoned partial uploads are kept |
+| Segment size | `8 MiB`                   | Preferred upload chunk size |
+| Max segment size | `4 GiB`                   | Largest allowed upload request body |
+| Max file size | `1 TiB`                   | Largest single file that can be backed up |
 | Concurrent uploads | `2 per device`, `4 total` | Limits simultaneous uploads |
-| Manifest batch size | `500` files | Maximum files per manifest request |
-| Manifest body size | `4 MiB` | Maximum manifest JSON body size |
-| App version | `1.0.0` | Reported by `GET /api/v1/server` |
-| API version | `v1` | Stable HTTP and discovery protocol version |
+| Manifest batch size | `500` files               | Maximum files per manifest request |
+| Manifest body size | `4 MiB`                   | Maximum manifest JSON body size |
+| App version | `1.0.3`                   | Reported by `GET /api/v1/server` |
+| API version | `v1`                      | Stable HTTP and discovery protocol version |
 
 ## Change Settings From The Command Line
 
@@ -58,7 +58,7 @@ Examples:
 
 ```bash
 ./gradlew bootRun --args='--syncup.server.name=Home-Mac --syncup.storage.root=/Volumes/Backup/syncup-data'
-java -jar syncup-server-1.0.0.jar --syncup.storage.root=/Volumes/Backup/syncup-data
+java -jar syncup-server-1.0.2.jar --syncup.storage.root=/Volumes/Backup/syncup-data
 ```
 
 Common overrides:
@@ -92,7 +92,7 @@ Committed files are stored under `data/<file-id>/<displayName>`. The
 
 Each GitHub release uploads the runnable jar and a versioned copy of this user
 guide together. After downloading the jar asset, start it with `java -jar
-syncup-server-1.0.0.jar`. The release job uses `gh release create` to publish
+syncup-server-1.0.3.jar`. The release job uses `gh release create` to publish
 those assets.
 
 ## Recommended Setup
