@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<springProperty scope="context" name="LOG_ROOT" source="syncup.logging.root" defaultValue="./syncup-data/logs"/>
+	<timestamp key="STARTUP_TS" datePattern="yyyy-MM-dd_HH-mm-ss" timeReference="contextBirth"/>
+
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger - %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="FILE" class="ch.qos.logback.core.FileAppender">
+		<file>${LOG_ROOT}/syncup-server-${STARTUP_TS}.log</file>
+		<append>false</append>
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger - %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<root level="INFO">
+		<appender-ref ref="CONSOLE"/>
+		<appender-ref ref="FILE"/>
+	</root>
+</configuration>

@@ -89,7 +89,8 @@ syncup-data/
 
 Each GitHub release uploads the runnable jar and a versioned copy of this user
 guide together. After downloading the jar asset, start it with `java -jar
-syncup-server-1.0.0.jar`.
+syncup-server-1.0.0.jar`. The release job uses `gh release create` to publish
+those assets.
 
 ## Recommended Setup
 

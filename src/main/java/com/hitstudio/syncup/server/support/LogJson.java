@@ -1,5 +1,7 @@
 package com.hitstudio.syncup.server.support;
 
+import org.slf4j.MDC;
+
 import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
@@ -13,6 +15,8 @@ public final class LogJson {
 		StringBuilder builder = new StringBuilder();
 		builder.append('{');
 		appendField(builder, "event", event);
+		appendMdcField(builder, "requestId", "requestId");
+		appendMdcField(builder, "sessionId", "sessionId");
 		if (fields.length % 2 != 0) {
 			throw new IllegalArgumentException("fields must be key/value pairs");
 		}
@@ -22,6 +26,14 @@ public final class LogJson {
 		}
 		builder.append('}');
 		return builder.toString();
+	}
+
+	private static void appendMdcField(StringBuilder builder, String jsonKey, String mdcKey) {
+		String value = MDC.get(mdcKey);
+		if (value != null && !value.isBlank()) {
+			builder.append(',');
+			appendField(builder, jsonKey, value);
+		}
 	}
 
 	private static void appendField(StringBuilder builder, String key, Object value) {

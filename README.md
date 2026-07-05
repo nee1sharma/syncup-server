@@ -161,7 +161,7 @@ The server unicasts a response to the sender:
 1. Bump `info.app.version` in `src/main/resources/application.yml` to the next release version, usually the minor component, for example `1.0.0` -> `1.1.0`.
 2. Bump `version` in `build.gradle` to keep the runnable jar name aligned with the release version.
 3. Create a Git tag that matches the app version, for example `v1.0.0`, and push it to GitHub.
-4. GitHub Actions runs `./gradlew clean test bootJar` and publishes the runnable jar plus a versioned copy of `docs/user-guide.md` as release assets.
+4. GitHub Actions runs `./gradlew clean test bootJar` and uses GitHub CLI to create the release and upload the runnable jar plus a versioned copy of `docs/user-guide.md` as release assets.
 
 Example:
 

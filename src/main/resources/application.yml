@@ -28,6 +28,8 @@ spring:
 syncup:
   server:
     name: hitstudio
+  logging:
+    root: ./syncup-data/logs
   discovery:
     enabled: true
     port: 9999
