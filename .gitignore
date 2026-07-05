@@ -6,7 +6,6 @@ syncup-data/
 .DS_Store
 .idea
 /.gitattributes
-gradle*
 
 # Local secrets and machine-specific overrides
 .env
