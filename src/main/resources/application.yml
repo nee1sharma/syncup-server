@@ -65,6 +65,6 @@ management:
 info:
   app:
     name: SyncUp Server
-    # Release version. Keep this in sync with build.gradle and the Git tag.
-    version: 1.0.3
+    # Expanded from build.gradle at build time.
+    version: @appVersion@
     api-version: v1

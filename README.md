@@ -16,7 +16,7 @@ properties, for example:
 
 ```bash
 ./gradlew bootRun --args='--syncup.server.name=Home Mac --syncup.storage.root=/Volumes/Backup/syncup-data'
-java -jar build/libs/syncup-server-1.0.3.jar --syncup.storage.root=/Volumes/Backup/syncup-data
+java -jar build/libs/syncup-server-X.Y.Z.jar --syncup.storage.root=/Volumes/Backup/syncup-data
 ```
 
 Do not forward the HTTP or discovery ports, publish them through a tunnel, or run
@@ -161,5 +161,5 @@ Example:
 
 ```bash
 ./gradlew clean test bootJar
-java -jar build/libs/syncup-server-1.0.3.jar
+java -jar build/libs/syncup-server-X.Y.Z.jar
 ```

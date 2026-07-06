@@ -47,7 +47,7 @@ port `9999`.
 | Concurrent uploads | `2 per device`, `4 total` | Limits simultaneous uploads |
 | Manifest batch size | `500` files               | Maximum files per manifest request |
 | Manifest body size | `4 MiB`                   | Maximum manifest JSON body size |
-| App version | `1.0.3`                   | Reported by `GET /api/v1/server` |
+| App version | `X.Y.Z`                   | Reported by `GET /api/v1/server` |
 | API version | `v1`                      | Stable HTTP and discovery protocol version |
 
 ## Change Settings From The Command Line
@@ -58,7 +58,7 @@ Examples:
 
 ```bash
 ./gradlew bootRun --args='--syncup.server.name=Home-Mac --syncup.storage.root=/Volumes/Backup/syncup-data'
-java -jar syncup-server-1.0.2.jar --syncup.storage.root=/Volumes/Backup/syncup-data
+java -jar syncup-server-X.Y.Z.jar --syncup.storage.root=/Volumes/Backup/syncup-data
 ```
 
 Common overrides:
@@ -95,7 +95,7 @@ instead of overwriting the file.
 
 Each GitHub release uploads the runnable jar and a versioned copy of this user
 guide together. After downloading the jar asset, start it with `java -jar
-syncup-server-1.0.3.jar`. The release job uses `gh release create` to publish
+syncup-server-X.Y.Z.jar`. The release job uses `gh release create` to publish
 those assets.
 
 ## Recommended Setup

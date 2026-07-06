@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.hitstudio.server.syncup'
-version = '1.0.3'
+version = '1.0.4'
 
 java {
 	toolchain {
@@ -31,4 +31,20 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.named('processResources') {
+	filesMatching('application.yml') {
+		filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [
+			appVersion: project.version.toString()
+		])
+	}
+}
+
+tasks.register('printVersion') {
+	group = 'help'
+	description = 'Prints the project version.'
+	doLast {
+		println project.version
+	}
 }
