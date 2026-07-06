@@ -36,6 +36,13 @@ public class JdbcFileRepository {
 				.optional();
 	}
 
+	public Optional<Records.StoredFile> findByStoredPath(String storedPath) {
+		return jdbc.sql(SELECT + " WHERE stored_path = :path")
+				.param("path", storedPath)
+				.query(this::map)
+				.optional();
+	}
+
 	public void insertStaged(Records.StoredFile file) {
 		jdbc.sql("""
 				INSERT INTO files(
@@ -79,6 +86,47 @@ public class JdbcFileRepository {
 	public void markDeleted(UUID fileId) {
 		jdbc.sql("UPDATE files SET status = 'DELETED' WHERE file_id = :id")
 				.param("id", fileId.toString())
+				.update();
+	}
+
+	public void delete(UUID fileId) {
+		jdbc.sql("DELETE FROM files WHERE file_id = :id")
+				.param("id", fileId.toString())
+				.update();
+	}
+
+	public void updateCommitted(Records.StoredFile file) {
+		jdbc.sql("""
+				UPDATE files
+				SET device_id = :deviceId,
+				    client_file_key = :key,
+				    original_name = :name,
+				    original_relative_path = :sourcePath,
+				    media_type = :media,
+				    mime_type = :mime,
+				    size_bytes = :size,
+				    sha256 = :sha,
+				    captured_at = :captured,
+				    modified_at = :modified,
+				    stored_path = :storedPath,
+				    backed_up_at = :backedUp,
+				    status = :status
+				WHERE file_id = :id
+				""")
+				.param("id", file.fileId().toString())
+				.param("deviceId", file.deviceId().toString())
+				.param("key", file.clientFileKey())
+				.param("name", file.originalName())
+				.param("sourcePath", file.originalRelativePath())
+				.param("media", file.mediaType())
+				.param("mime", file.mimeType())
+				.param("size", file.sizeBytes())
+				.param("sha", file.sha256())
+				.param("captured", text(file.capturedAt()))
+				.param("modified", text(file.modifiedAt()))
+				.param("storedPath", file.storedPath())
+				.param("backedUp", file.backedUpAt().toString())
+				.param("status", file.status())
 				.update();
 	}
 

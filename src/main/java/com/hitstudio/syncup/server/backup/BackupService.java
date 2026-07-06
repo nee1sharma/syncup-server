@@ -8,6 +8,7 @@ import com.hitstudio.syncup.server.persistence.Records;
 import com.hitstudio.syncup.server.support.DomainException;
 import com.hitstudio.syncup.server.support.LogJson;
 import com.hitstudio.syncup.server.support.StorageBootstrap;
+import com.hitstudio.syncup.server.support.StoragePaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -58,7 +59,7 @@ public class BackupService {
 
 	@Transactional
 	public BackupDtos.BackupRunResponse create(BackupDtos.CreateBackupRequest request) {
-		String deviceName = request.deviceName().trim();
+		String deviceName = StoragePaths.deviceFolder(request.deviceName());
 		Instant now = clock.instant();
 		try {
 			backups.upsertDevice(request.deviceId(), deviceName, now);
@@ -117,7 +118,7 @@ public class BackupService {
 	public BackupDtos.ManifestPlanResponse submitManifest(
 			UUID runId, BackupDtos.ManifestBatchRequest request
 	) {
-		String deviceName = request.deviceName().trim();
+		String deviceName = StoragePaths.deviceFolder(request.deviceName());
 		try {
 			backups.upsertDevice(request.deviceId(), deviceName, clock.instant());
 			if (request.files().size() > properties.manifest().maxBatchFiles()) {
@@ -196,7 +197,7 @@ public class BackupService {
 
 	@Transactional
 	public BackupDtos.BackupRunResponse complete(UUID runId, UUID deviceId, String deviceName) {
-		String trimmed = deviceName.trim();
+		String trimmed = StoragePaths.deviceFolder(deviceName);
 		try {
 			backups.upsertDevice(deviceId, trimmed, clock.instant());
 			Records.BackupRun run = ownedRun(runId, deviceId);
@@ -241,7 +242,7 @@ public class BackupService {
 
 	@Transactional
 	public BackupDtos.BackupRunResponse cancel(UUID runId, UUID deviceId, String deviceName) {
-		String trimmed = deviceName.trim();
+		String trimmed = StoragePaths.deviceFolder(deviceName);
 		try {
 			backups.upsertDevice(deviceId, trimmed, clock.instant());
 			Records.BackupRun run = ownedRun(runId, deviceId);

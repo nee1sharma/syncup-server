@@ -102,9 +102,11 @@ It requires:
 - `X-SyncUp-Device-Name`
 - `X-SyncUp-Run-Id`
 
-Backed-up files are stored under `syncup-data/data/<file-id>/<displayName>`, so
-the original filename is preserved on disk while `deviceId` remains the
-ownership key for metadata and authorization checks.
+Backed-up files are stored under `syncup-data/data/<device-name>/<displayName>`,
+so `deviceName` becomes the on-disk folder name, must stay path-safe, and
+`deviceId` remains the ownership key for metadata and authorization checks.
+If the path already exists with matching bytes, SyncUp reuses it; otherwise it
+rejects the upload rather than overwriting the file.
 
 A successful segment returns `204` with the durable `Upload-Offset` and
 `Upload-Complete`. An offset conflict returns `409` and the authoritative

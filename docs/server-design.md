@@ -288,7 +288,7 @@ Use a unique committed-file constraint on `(device_id, sha256, size_bytes)`. Ind
 ```text
 syncup-data/
 ├── data/
-│   └── <file-id>/
+│   └── <device-name>/
 │       └── <original-name>
 ├── partial/
 │   └── <transfer-id>.part
@@ -303,10 +303,11 @@ Rules:
 - Treat filenames and relative paths as untrusted metadata.
 - Generate every physical storage path on the server.
 - Reject traversal, absolute paths, control characters, invalid sizes, and invalid hashes.
+- Reject unsafe `deviceName` folder names before using them on disk.
 - Write only under `partial/` until expected size and SHA-256 are verified.
-- Atomically move verified content into a unique `data/<file-id>/` directory.
+- Atomically move verified content into the `data/<device-name>/` directory.
 - Mark metadata committed only after the move succeeds.
-- Preserve the original filename as the file leaf and resolve collisions with `file_id`; never overwrite an existing file.
+- Preserve the original filename as the file leaf; if the same path already exists with matching bytes, reuse it, otherwise reject the collision instead of overwriting an existing file.
 - Never expose database/internal paths through file APIs.
 
 ## 11. Discovery
@@ -337,7 +338,7 @@ The first server implementation has no application-level security:
 - No TLS/HTTPS
 
 The client includes its stable `deviceId` in backup requests. The server uses it only to organize metadata and ownership; it is not proof of identity.
-The client also sends `deviceName`. The server stores files under a unique `data/<file-id>/` directory and keeps the original display name as the file leaf, while also keeping the latest display name in the `devices` table.
+The client also sends `deviceName`. The server stores files under a `data/<device-name>/` directory and keeps the original display name as the file leaf, while also keeping the latest display name in the `devices` table.
 
 All SyncUp API endpoints are reachable by devices that can access the server's LAN address. Any such device could inspect or restore any backup if it knows or discovers the API. Therefore:
 

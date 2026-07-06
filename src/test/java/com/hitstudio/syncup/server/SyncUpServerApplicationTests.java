@@ -134,11 +134,6 @@ class SyncUpServerApplicationTests {
 				.andExpect(header().string("Upload-Offset", Integer.toString(bytes.length)))
 				.andExpect(header().string("Upload-Complete", "true"));
 
-		try (var paths = Files.walk(Path.of(storageRoot, "data"))) {
-			assertTrue(paths.filter(Files::isRegularFile)
-					.anyMatch(path -> path.getFileName().toString().equals("hello.txt")));
-		}
-
 		mvc.perform(post("/api/v1/backups/{runId}/complete", runId)
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
@@ -154,6 +149,8 @@ class SyncUpServerApplicationTests {
 				.andReturn().getResponse().getContentAsString();
 		UUID fileId = UUID.fromString(
 				json.readTree(listing).get("files").get(0).get("fileId").asText());
+		assertTrue(Files.isRegularFile(Path.of(
+				storageRoot, "data", "Test Phone", "hello.txt")));
 
 		mvc.perform(get("/api/v1/files/{fileId}/content", fileId))
 				.andExpect(status().isOk())
@@ -242,5 +239,17 @@ class SyncUpServerApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.state").value("COMPLETED"))
 				.andExpect(jsonPath("$.fileCount").value(1));
+	}
+
+	@Test
+	void unsafeDeviceNameIsRejectedForStoragePaths() throws Exception {
+		UUID deviceId = UUID.randomUUID();
+		mvc.perform(post("/api/v1/backups")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"deviceId":"%s","deviceName":"Bad/Name","idempotencyKey":"run-bad"}
+								""".formatted(deviceId)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_DEVICE_NAME"));
 	}
 }

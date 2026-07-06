@@ -85,8 +85,11 @@ syncup-data/
 └── syncup.lock
 ```
 
-Committed files are stored under `data/<file-id>/<displayName>`. The
-`deviceName` stays as metadata and is not used as the on-disk folder name.
+Committed files are stored under `data/<device-name>/<displayName>`.
+The device name is used as the folder name, so keep it path-safe, and
+`deviceId` stays as the ownership key. If a file already exists at the same
+path with the same bytes, SyncUp reuses it; otherwise it rejects the upload
+instead of overwriting the file.
 
 ## GitHub Releases
 

@@ -9,6 +9,7 @@ import com.hitstudio.syncup.server.persistence.Records;
 import com.hitstudio.syncup.server.support.DomainException;
 import com.hitstudio.syncup.server.support.LogJson;
 import com.hitstudio.syncup.server.support.StorageBootstrap;
+import com.hitstudio.syncup.server.support.StoragePaths;
 import com.hitstudio.syncup.server.support.SyncUpMetrics;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -93,7 +94,7 @@ public class TransferService {
 		long contentLength,
 		InputStream input
 	) {
-		String trimmed = deviceName.trim();
+		String trimmed = StoragePaths.deviceFolder(deviceName);
 		ReentrantLock lock = transferLocks.computeIfAbsent(transferId, ignored -> new ReentrantLock());
 		Semaphore perDevice = null;
 		boolean global = false;
@@ -166,7 +167,7 @@ public class TransferService {
 			backups.updateRunState(runId, "TRANSFERRING");
 
 			if (accepted == transfer.expectedSize()) {
-				verifyOnBoundedExecutor(transfer, partial);
+				verifyOnBoundedExecutor(transfer, partial, trimmed);
 				UploadResult result = new UploadResult(accepted, true);
 				log.info(LogJson.event("transfer_upload_completed",
 						"deviceId", deviceId,
@@ -228,7 +229,7 @@ public class TransferService {
 	}
 
 	public Records.Transfer status(UUID transferId, UUID deviceId, String deviceName, UUID runId) {
-		String trimmed = deviceName.trim();
+		String trimmed = StoragePaths.deviceFolder(deviceName);
 		backups.upsertDevice(deviceId, trimmed, clock.instant());
 		Records.Transfer transfer = ownedTransfer(transferId, deviceId, runId);
 			log.info(LogJson.event("transfer_status_requested",
@@ -244,11 +245,11 @@ public class TransferService {
 		return transfer;
 	}
 
-	private void verifyOnBoundedExecutor(Records.Transfer transfer, Path partial) {
+	private void verifyOnBoundedExecutor(Records.Transfer transfer, Path partial, String deviceName) {
 		FutureTask<Void> task = new FutureTask<>(() -> {
 			Timer.Sample sample = Timer.start();
 			try {
-				verifyAndCommit(transfer, partial);
+				verifyAndCommit(transfer, partial, deviceName);
 			} finally {
 				sample.stop(metrics.hashDuration());
 			}
@@ -272,7 +273,7 @@ public class TransferService {
 		}
 	}
 
-	private void verifyAndCommit(Records.Transfer transfer, Path partial) {
+	private void verifyAndCommit(Records.Transfer transfer, Path partial, String deviceName) {
 		String actualHash;
 		try {
 			if (Files.size(partial) != transfer.expectedSize()) {
@@ -302,8 +303,65 @@ public class TransferService {
 						transfer.runId(), transfer.clientFileKey())
 				.orElseThrow(() -> new IllegalStateException("Manifest entry missing for transfer"));
 		Instant now = clock.instant();
+		String storedPath = StoragePaths.committedPath(deviceName, manifest.displayName());
+		Path destination = storage.resolveSafe(storedPath);
+		Records.StoredFile existing = files.findByStoredPath(storedPath).orElse(null);
+		boolean destinationExists = Files.isRegularFile(destination);
+
+		if (destinationExists) {
+			if (!matchesContent(destination, transfer.expectedSize(), transfer.expectedSha256())) {
+				rejectPathConflict(transfer, existing == null ? null : existing.fileId(),
+						partial, destination, storedPath);
+				return;
+			}
+
+			UUID fileId = existing == null ? UUID.randomUUID() : existing.fileId();
+			Records.StoredFile committed = new Records.StoredFile(
+					fileId, transfer.deviceId(), transfer.clientFileKey(), manifest.displayName(),
+					manifest.relativePath(), manifest.mediaType(), manifest.mimeType(),
+					transfer.expectedSize(), transfer.expectedSha256(), manifest.capturedAt(),
+					manifest.modifiedAt(), storedPath, now, "COMMITTED");
+			try {
+				transactions.executeWithoutResult(status -> {
+					if (existing == null) {
+						files.insertStaged(new Records.StoredFile(
+								fileId, transfer.deviceId(), transfer.clientFileKey(), manifest.displayName(),
+								manifest.relativePath(), manifest.mediaType(), manifest.mimeType(),
+								transfer.expectedSize(), transfer.expectedSha256(), manifest.capturedAt(),
+								manifest.modifiedAt(), storedPath, now, "QUARANTINED"));
+						files.markCommitted(fileId);
+					} else {
+						files.updateCommitted(committed);
+					}
+					transfers.stageFile(transfer.transferId(), fileId);
+					transfers.markCommitted(transfer.transferId(), clock.instant());
+				});
+				try {
+					Files.deleteIfExists(partial);
+				} catch (IOException ignored) {
+					// Recovery can clean up the leftover partial if deletion fails.
+				}
+				log.info(LogJson.event("transfer_committed",
+						"deviceId", transfer.deviceId(),
+						"runId", transfer.runId(),
+						"transferId", transfer.transferId(),
+						"fileId", fileId,
+						"clientFileKey", transfer.clientFileKey(),
+						"expectedBytes", transfer.expectedSize(),
+						"storedPath", storedPath,
+						"reusedExistingPath", existing != null));
+				return;
+			} catch (DataIntegrityViolationException duplicateIdentity) {
+				rejectPathConflict(transfer, fileId, partial, destination, storedPath);
+				return;
+			}
+		}
+
+		if (existing != null) {
+			files.delete(existing.fileId());
+		}
+
 		UUID fileId = UUID.randomUUID();
-		String storedPath = storedPath(fileId, manifest.displayName());
 		Records.StoredFile staged = new Records.StoredFile(
 				fileId, transfer.deviceId(), transfer.clientFileKey(), manifest.displayName(),
 				manifest.relativePath(), manifest.mediaType(), manifest.mimeType(),
@@ -315,12 +373,11 @@ public class TransferService {
 			transfers.stageFile(transfer.transferId(), fileId);
 		});
 
-		Path destination = storage.resolveSafe(storedPath);
 		try {
 			Files.createDirectories(destination.getParent());
 			try {
 				Files.move(partial, destination, StandardCopyOption.ATOMIC_MOVE);
-			} catch (AtomicMoveNotSupportedException unsupported) {
+			} catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
 				Files.move(partial, destination);
 			}
 		} catch (IOException exception) {
@@ -359,11 +416,6 @@ public class TransferService {
 					"expectedBytes", transfer.expectedSize(),
 					"storedPath", storedPath));
 		}
-	}
-
-	private String storedPath(UUID fileId, String originalName) {
-		// Keep the original filename as the leaf while isolating each committed file.
-		return Path.of("data", fileId.toString(), originalName).toString().replace('\\', '/');
 	}
 
 	private void writeSegment(Path partial, long offset, long length, InputStream input) {
@@ -471,6 +523,35 @@ public class TransferService {
 		} catch (IOException ignored) {
 			// The rejected row remains visible to cleanup/recovery.
 		}
+	}
+
+	private boolean matchesContent(Path path, long expectedSize, String expectedSha256) {
+		try {
+			return Files.size(path) == expectedSize && sha256(path).equals(expectedSha256);
+		} catch (IOException exception) {
+			throw storageFailure(exception);
+		}
+	}
+
+	private void rejectPathConflict(
+			Records.Transfer transfer, UUID fileId, Path partial, Path destination, String storedPath
+	) {
+		try {
+			Files.deleteIfExists(partial);
+		} catch (IOException ignored) {
+			// The transfer row is rejected below; cleanup can remove any leftover partial later.
+		}
+		transactions.executeWithoutResult(status -> transfers.markRejected(transfer.transferId(), clock.instant()));
+		log.warn(LogJson.event("transfer_path_conflict",
+				"deviceId", transfer.deviceId(),
+				"runId", transfer.runId(),
+				"transferId", transfer.transferId(),
+				"fileId", fileId,
+				"clientFileKey", transfer.clientFileKey(),
+				"storedPath", storedPath,
+				"destination", destination.toString()));
+		throw new DomainException(HttpStatus.CONFLICT, "FILE_PATH_CONFLICT",
+				"A file with the same device name and file name already exists");
 	}
 
 	private DomainException capacity(String detail) {
