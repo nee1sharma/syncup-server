@@ -62,7 +62,7 @@ jobs:
           mkdir -p release-assets
           cp "${jar_file}" "release-assets/syncup-server-${version}.jar"
           cp docs/user-guide.md "release-assets/syncup-user-guide-${version}.md"
-          (cd syncup-server-go && go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "../release-assets/syncup-server-go-${version}" ./cmd/syncup-server)
+          (cd syncup-server-go && go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "../release-assets/syncup-server-start-${version}" ./cmd/syncup-server)
 
       - name: Publish GitHub release
         shell: bash

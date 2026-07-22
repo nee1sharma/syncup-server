@@ -14,8 +14,8 @@ binary. Run whichever command/options fits your setup:
 java -jar syncup-server-X.Y.Z.jar
 
 # Or Go released artifact or just double click on binary file
-chmod +x syncup-server-go-X.Y.Z
-./syncup-server-go-X.Y.Z
+chmod +x syncup-server-start-X.Y.Z
+./syncup-server-start-X.Y.Z
 ```
 
 Both artifacts expose the same SyncUp HTTP API and UDP discovery behavior.
