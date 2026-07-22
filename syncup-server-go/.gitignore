@@ -1,0 +1,5 @@
+/bin/
+/syncup-data/
+/dev-data/
+*.db-shm
+*.db-wal
