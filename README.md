@@ -4,6 +4,22 @@ Trusted-LAN Spring Boot server for incremental phone backups and restore downloa
 It uses Java 25, Spring Boot 4.1, SQLite/Flyway, raw streaming uploads, and local
 filesystem storage. Version 1 intentionally has no authentication or TLS.
 
+## Release Artifacts
+
+GitHub releases now publish both the Java application jar and the Go server
+binary. Run whichever command/options fits your setup:
+
+```bash
+# Java released artifact
+java -jar syncup-server-X.Y.Z.jar
+
+# Or Go released artifact or just double click on binary file
+chmod +x syncup-server-go-X.Y.Z
+./syncup-server-go-X.Y.Z
+```
+
+Both artifacts expose the same SyncUp HTTP API and UDP discovery behavior.
+
 ## Run
 
 ```bash
