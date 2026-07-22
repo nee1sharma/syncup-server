@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -43,10 +44,14 @@ func Load(args []string, appVersion string) (Config, error) {
 	if strings.TrimSpace(hostname) == "" {
 		hostname = "SyncUp Go Server"
 	}
+	storageRoot, err := defaultStorageRoot()
+	if err != nil {
+		return Config{}, err
+	}
 	c := Config{
 		HTTPAddress:            "0.0.0.0:8500",
 		ServerName:             hostname,
-		StorageRoot:            "./syncup-data",
+		StorageRoot:            storageRoot,
 		MinimumFreeBytes:       defaultMinFreeBytes,
 		DiscoveryEnabled:       true,
 		DiscoveryPort:          9999,
@@ -83,6 +88,14 @@ func Load(args []string, appVersion string) (Config, error) {
 		return Config{}, err
 	}
 	return c, nil
+}
+
+func defaultStorageRoot() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("determine user home directory: %w", err)
+	}
+	return filepath.Join(home, "Documents", "SyncUp"), nil
 }
 
 func (c Config) Validate() error {

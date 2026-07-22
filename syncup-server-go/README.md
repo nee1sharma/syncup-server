@@ -37,7 +37,7 @@ Defaults:
 |---|---|
 | HTTP | `0.0.0.0:8500` |
 | UDP discovery | `0.0.0.0:9999` |
-| Storage | `./syncup-data` |
+| Storage | `$HOME/Documents/SyncUp` |
 | Preferred segment | 8 MiB |
 | Maximum segment | 4 GiB |
 | Maximum file | 1 TiB |
@@ -88,10 +88,14 @@ the available flags.
 
 ## Storage
 
+By default, the storage root is the current user's `Documents/SyncUp` folder.
+For example, on macOS it is `/Users/<username>/Documents/SyncUp`. The directory
+is created automatically when the server first starts.
+
 The storage root is process-locked and contains:
 
 ```text
-syncup-data/
+SyncUp/
 ├── data/<device-name>/<original-name>
 ├── partial/<transfer-id>.part
 ├── quarantine/
@@ -123,7 +127,7 @@ HTTP contract.
 docker build -t syncup-server-go .
 docker run --rm \
   -p 8500:8500/tcp -p 9999:9999/udp \
-  -v "$PWD/syncup-data:/data" \
+  -v "$HOME/Documents/SyncUp:/data" \
   -e SYNCUP_MINIMUM_FREE_BYTES=0 \
   syncup-server-go
 ```
