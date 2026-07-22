@@ -26,6 +26,12 @@ jobs:
           distribution: temurin
           java-version: "25"
 
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: syncup-server-go/go.mod
+          cache-dependency-path: syncup-server-go/go.sum
+
       - name: Build release jar
         run: ./gradlew clean test bootJar
 
@@ -56,6 +62,7 @@ jobs:
           mkdir -p release-assets
           cp "${jar_file}" "release-assets/syncup-server-${version}.jar"
           cp docs/user-guide.md "release-assets/syncup-user-guide-${version}.md"
+          (cd syncup-server-go && go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "../release-assets/syncup-server-go-${version}" ./cmd/syncup-server)
 
       - name: Publish GitHub release
         shell: bash
